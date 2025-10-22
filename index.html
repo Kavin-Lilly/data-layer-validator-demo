@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Data Layer Validator — Good & Error Events</title>
+<style>
+  body { font-family: "Segoe UI", Helvetica, Arial, sans-serif; margin: 0; background-color: #f5f5f5; }
+  header { background-color: #e41e26; color: white; padding: 1rem; text-align: center; font-size: 1.3rem; font-weight: 700; }
+  .tabs { display: flex; background-color: #fff; border-bottom: 2px solid #e41e26; }
+  .tab { padding: 0.8rem 1rem; cursor: pointer; flex: 1; text-align: center; font-weight: 700; }
+  .tab.active { border-bottom: 4px solid #e41e26; background-color: #ffe6e9; }
+  .tab-content { display: none; padding: 1rem; }
+  .tab-content.active { display: block; }
+  .event-card { background: #fff; border-radius: 10px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 2px 6px rgba(0,0,0,0.08); display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+  .event-info { flex: 2; }
+  .simulate-btn { flex: 1; padding: 0.4rem 0.8rem; background-color: #e41e26; color: #fff; border: none; border-radius: 6px; cursor: pointer; height: 40px; margin-top: auto; }
+  .simulate-btn:hover { background-color: #c5171e; }
+  .modal { display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); }
+  .modal-content { background-color: #fff; margin: 3% auto; padding: 1rem; border-radius: 10px; width: 92%; max-width: 1000px; position: relative; }
+  .close-btn { position: absolute; top: 10px; right: 20px; font-size: 1.6rem; cursor: pointer; }
+  .json-container { background:#1e1e1e; color:#d4d4d4; padding:1rem; border-radius:6px; font-family: "Consolas","Courier New",monospace; max-height:400px; overflow:auto; }
+  .key { color: #9cdcfe; }
+  .string { color: #ce9178; }
+  .number { color: #b5cea8; }
+  .boolean { color: #569cd6; }
+  .brace { color: #d4d4d4; }
+</style>
+<script src="https://assets.adobedtm.com/d8c48e012a5d/02b110536527/launch-abe9c9455daa-development.min.js" async></script>
+</head>
+<body>
+
+<header>Data Layer Validator — Good & Error Events</header>
+
+<div class="tabs" role="tablist">
+  <div class="tab active" data-tab="good">Good Events</div>
+  <div class="tab" data-tab="error">Error Events</div>
+</div>
+
+<div id="good" class="tab-content active"></div>
+<div id="error" class="tab-content"></div>
+
+<div id="modal" class="modal" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <span class="close-btn" aria-label="Close">&times;</span>
+    <pre id="modal-pre" class="json-container"></pre>
+  </div>
+</div>
+
+<script>
+const tabs = document.querySelectorAll('.tab');
+const contents = document.querySelectorAll('.tab-content');
+const modal = document.getElementById('modal');
+const modalPre = document.getElementById('modal-pre');
+const closeModalBtn = document.querySelector('.close-btn');
+
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    tabs.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    contents.forEach(c => c.classList.remove('active'));
+    document.getElementById(tab.dataset.tab).classList.add('active');
+  });
+});
+
+closeModalBtn.addEventListener('click', () => modal.style.display = 'none');
+window.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+
+function syntaxHighlight(json) {
+  if (typeof json !== 'string') json = JSON.stringify(json, undefined, 2);
+  json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|\b(true|false|null)\b|\b-?\d+(\.\d*)?([eE][+\-]?\d+)?\b|[{}[\]])/g, match => {
+    let cls = 'number';
+    if (/^{|}|\[|\]/.test(match)) cls = 'brace';
+    else if (/true|false|null/.test(match)) cls = 'boolean';
+    else if (/":$/.test(match)) cls = 'key';
+    else if (/^"/.test(match)) cls = 'string';
+    return `<span class="${cls}">${match}</span>`;
+  });
+}
+
+function createEventCard(container, eventName, dataLayerObject) {
+  const card = document.createElement('div'); card.className = 'event-card';
+  const infoDiv = document.createElement('div'); infoDiv.className = 'event-info';
+  const pre = document.createElement('pre'); pre.className = 'json-container';
+  pre.innerHTML = syntaxHighlight(dataLayerObject);
+  pre.style.cursor = 'pointer';
+  pre.title = "Click to expand";
+  pre.addEventListener('click', () => {
+    modalPre.innerHTML = syntaxHighlight(dataLayerObject);
+    modal.style.display = 'block';
+  });
+  infoDiv.appendChild(pre);
+  const btn = document.createElement('button'); btn.className = 'simulate-btn'; btn.innerText = `Simulate ${eventName}`;
+  btn.addEventListener('click', () => {
+    window.adobeDataLayer = window.adobeDataLayer || [];
+    window.adobeDataLayer.push(dataLayerObject);
+  });
+  card.appendChild(infoDiv); card.appendChild(btn);
+  container.appendChild(card);
+}
+
+// Containers
+const goodContainer = document.getElementById('good');
+const errorContainer = document.getElementById('error');
+
+// Example: replace these arrays with your validator events
+const goodEvents = [
+  // Page Events
+  { name:'page_view', payload:{event:"page_view", pageInfo:{pageTitle:"Test Page Title", pageUrl:"https://test.lilly.com/test-page", pagePath:"/test-page", pageLanguage:"en-US", previousPageUrl:"https://test.lilly.com/home"}, applicationInfo:{hostName:"test.lilly.com", browserType:"Chrome", operatingSystemType:"Windows", deviceType:"Desktop"}}},
+  { name:'page_scroll', payload:{event:"page_scroll", eventinfo:{eventName:"Page Scroll", percentScroll:"50%", scrollPosition:"middle", documentHeight:"2000px"}}},
+  { name:'section_view', payload:{event:"section_view", eventinfo:{eventName:"Section View", sectionId:"test-section-1"}}},
+  { name:'site_error', payload:{event:"site_error", pageInfo:{pageTitle:"Test Error Page", pageUrl:"https://test.lilly.com/error-page", pagePath:"/error-page", pageLanguage:"en-US", previousPageUrl:"https://test.lilly.com/home"}, errorInfo:{errorDetails:"404:Not Found"}, applicationInfo:{hostName:"test.lilly.com", browserType:"Chrome", operatingSystemType:"Windows", deviceType:"Desktop"}}},
+
+  // Interaction Events
+  { name:'link_click', payload:{event:"link_click", eventinfo:{eventName:"Link Click", linkText:"Test Link", linkType:"Internal", linkUrl:"https://test.lilly.com/destination", linkLocation:"Header"}, componentInfo:{componentName:"test-component"}}},
+  { name:'cta_click', payload:{event:"cta_click", eventinfo:{eventName:"CTA Click", linkText:"Test CTA", linkType:"Internal", linkUrl:"https://test.lilly.com/cta", linkLocation:"Hero"}, componentInfo:{componentName:"test-component"}}},
+  { name:'modal_view', payload:{event:"modal_view", eventinfo:{eventName:"Modal View", modalId:"test-modal-1"}, componentInfo:{componentName:"test-component"}}},
+  { name:'modal_button_click', payload:{event:"modal_button_click", eventinfo:{eventName:"Modal Button Click", linkText:"Confirm", linkType:"internal", linkLocation:"Modal Section", modalId:"test-modal-1"}, componentInfo:{componentName:"test-component"}}},
+  { name:'file_download', payload:{event:"link_click", eventinfo:{eventName:"File Download Interaction", linkText:"Download PDF", linkType:"Internal", linkUrl:"https://test.lilly.com/file.pdf", linkLocation:"Footer", downloadFileName:"TestFile.pdf", downloadFileType:"pdf"}, componentInfo:{componentName:"test-component"}}},
+  { name:'filter_click', payload:{event:"link_click", eventinfo:{eventName:"Filter Click", linkText:"Filter 1", linkType:"internal", linkUrl:"https://test.lilly.com/filter", linkLocation:"Filter Section", filter:"Filter-Test"}, componentInfo:{componentName:"test-component"}}},
+
+  // Form Events
+  { name:'form_view', payload:{event:"form_view", eventinfo:{eventName:"Form View", formName:"Test Form", formId:"form-1", formAction:"https://test.lilly.com/form", formMethod:"POST", fieldCount:"5"}, componentInfo:{componentName:"test-component"}}},
+  { name:'form_interaction', payload:{event:"form_interaction", eventinfo:{eventName:"Form Interaction", formName:"Test Form", formId:"form-1", fieldName:"First Name", fieldType:"text", fieldLabel:"First Name"}, componentInfo:{componentName:"test-component"}}},
+  { name:'form_complete', payload:{event:"form_complete", eventinfo:{eventName:"Form Complete", formName:"Test Form", formId:"form-1"}, componentInfo:{componentName:"test-component"}}},
+  { name:'form_error', payload:{event:"form_error", eventinfo:{eventName:"Form Error", formName:"Test Form", formId:"form-1", errorMessage:"Server Error", errorSource:"Test Service", errorCode:"500"}, componentInfo:{componentName:"test-component"}}},
+
+  // Video & Engagement Events
+  { name:'Video View', payload:{event:"video_event", eventinfo:{eventName:"Video View", videoId:"vid-123", videoName:"Test Video"}, componentInfo:{componentName:"test-component"}}},
+  { name:'Video Start', payload:{event:"video_event", eventinfo:{eventName:"Video Start", videoId:"vid-123", videoName:"Test Video"}, componentInfo:{componentName:"test-component"}}},
+  { name:'Video Paused', payload:{event:"video_event", eventinfo:{eventName:"Video Paused", videoId:"vid-123", videoName:"Test Video"}, componentInfo:{componentName:"test-component"}}},
+  { name:'Video Resume', payload:{event:"video_event", eventinfo:{eventName:"Video Resume", videoId:"vid-123", videoName:"Test Video"}, componentInfo:{componentName:"test-component"}}},
+  { name:'Video Buffer', payload:{event:"video_event", eventinfo:{eventName:"Video Buffer", videoId:"vid-123", videoName:"Test Video"}, componentInfo:{componentName:"test-component"}}},
+  { name:'Video 25%', payload:{event:"video_event", eventinfo:{eventName:"Video 25%", videoId:"vid-123", videoName:"Test Video"}, componentInfo:{componentName:"test-component"}}},
+  { name:'Video 50%', payload:{event:"video_event", eventinfo:{eventName:"Video 50%", videoId:"vid-123", videoName:"Test Video"}, componentInfo:{componentName:"test-component"}}},
+  { name:'Video 75%', payload:{event:"video_event", eventinfo:{eventName:"Video 75%", videoId:"vid-123", videoName:"Test Video"}, componentInfo:{componentName:"test-component"}}},
+  { name:'Video 100%', payload:{event:"video_event", eventinfo:{eventName:"Video 100%", videoId:"vid-123", videoName:"Test Video"}, componentInfo:{componentName:"test-component"}}},
+  { name:'engaged_user_10', payload:{event:"engaged_user_10", eventinfo:{eventName:"engaged_user_10", page_url:"https://test.lilly.com/test-page", link_text:"Test Link", engaged_user_10:1}}},
+  { name:'engaged_user_by_pages', payload:{event:"engaged_user_by_pages", eventinfo:{eventName:"engaged_user_by_pages", linkText:"Engaged User", engagedUser:1}}},
+  { name:'engaged_user_by_timer', payload:{event:"engaged_user_by_timer", eventinfo:{eventName:"engaged_user_by_timer", linkText:"Engaged User", engagedUser:1}}}
+];
+
+// ---------- Error Payloads ----------
+const errorEvents = [
+  // Page Events
+  { name:'page_view', payload:{event:"page_view", pageInfo:{pageTitle:null, pageUrl:"", pagePath:"/error-page"}, errorInfo:{errorDetails:"Missing page title & URL"}, applicationInfo:{hostName:"test.lilly.com"}}},
+  { name:'page_scroll', payload:{event:"page_scroll", eventinfo:{eventName:"Page Scroll", percentScroll:"150%", scrollPosition:"middle"}, error:"Invalid scroll percentage"}},
+  { name:'section_view', payload:{event:"section_view", eventinfo:{eventName:"Section View", sectionId:null}, error:"Missing sectionId"}},
+  { name:'site_error', payload:{event:"site_error", pageInfo:{pageTitle:"Error Page", pageUrl:"https://test.lilly.com/error-page"}, errorInfo:{errorDetails:"500: Internal Server Error"}}},
+
+  // Interaction Events
+  { name:'link_click', payload:{event:"link_click", eventinfo:{eventName:"Link Click", linkText:"Broken Link", linkUrl:""}, error:"Missing URL", componentInfo:{componentName:"test-component"}}},
+  { name:'cta_click', payload:{event:"cta_click", eventinfo:{eventName:"CTA Click", linkText:"CTA Missing", linkUrl:""}, error:"Missing URL", componentInfo:{componentName:"test-component"}}},
+  { name:'modal_view', payload:{event:"modal_view", eventinfo:{eventName:"Modal View", modalId:null}, error:"Missing modalId", componentInfo:{componentName:"test-component"}}},
+  { name:'modal_button_click', payload:{event:"modal_button_click", eventinfo:{eventName:"Modal Button Click", linkText:"", modalId:""}, error:"Missing modalId", componentInfo:{componentName:"test-component"}}},
+  { name:'file_download', payload:{event:"link_click", eventinfo:{eventName:"File Download Interaction", linkText:"Download PDF", linkUrl:""}, error:"Missing download URL", componentInfo:{componentName:"test-component"}}},
+  { name:'filter_click', payload:{event:"link_click", eventinfo:{eventName:"Filter Click", linkText:"", filter:""}, error:"Missing filter info", componentInfo:{componentName:"test-component"}}},
+
+  // Form Events
+  { name:'form_view', payload:{event:"form_view", eventinfo:{eventName:"Form View", formName:null, formId:"form-1"}, error:"Missing formName", componentInfo:{componentName:"test-component"}}},
+  { name:'form_interaction', payload:{event:"form_interaction", eventinfo:{eventName:"Form Interaction", formName:"Test Form", formId:"form-1", fieldName:"", fieldType:"", fieldLabel:""}, error:"Missing field info", componentInfo:{componentName:"test-component"}}},
+  { name:'form_complete', payload:{event:"form_complete", eventinfo:{eventName:"Form Complete", formName:"", formId:""}, error:"Missing form info", componentInfo:{componentName:"test-component"}}},
+  { name:'form_error', payload:{event:"form_error", eventinfo:{eventName:"Form Error", formName:"Test Form", formId:"form-1"}, error:"Simulated error", componentInfo:{componentName:"test-component"}}},
+
+  // Video & Engagement Events
+  { name:'Video View', payload:{event:"video_event", eventinfo:{eventName:"Video View", videoId:null}, error:"Missing videoId", componentInfo:{componentName:"test-component"}}},
+  { name:'Video Start', payload:{event:"video_event", eventinfo:{eventName:"Video Start", videoId:null}, error:"Missing videoId", componentInfo:{componentName:"test-component"}}},
+  { name:'Video Paused', payload:{event:"video_event", eventinfo:{eventName:"Video Paused", videoId:null}, error:"Missing videoId", componentInfo:{componentName:"test-component"}}},
+  { name:'Video Resume', payload:{event:"video_event", eventinfo:{eventName:"Video Resume", videoId:null}, error:"Missing videoId", componentInfo:{componentName:"test-component"}}},
+  { name:'Video Buffer', payload:{event:"video_event", eventinfo:{eventName:"Video Buffer", videoId:null}, error:"Missing videoId", componentInfo:{componentName:"test-component"}}},
+  { name:'Video 25%', payload:{event:"video_event", eventinfo:{eventName:"Video 25%", videoId:null}, error:"Missing videoId", componentInfo:{componentName:"test-component"}}},
+  { name:'Video 50%', payload:{event:"video_event", eventinfo:{eventName:"Video 50%", videoId:null}, error:"Missing videoId", componentInfo:{componentName:"test-component"}}},
+  { name:'Video 75%', payload:{event:"video_event", eventinfo:{eventName:"Video 75%", videoId:null}, error:"Missing videoId", componentInfo:{componentName:"test-component"}}},
+  { name:'Video 100%', payload:{event:"video_event", eventinfo:{eventName:"Video 100%", videoId:null}, error:"Missing videoId", componentInfo:{componentName:"test-component"}}},
+  { name:'engaged_user_10', payload:{event:"engaged_user_10", eventinfo:{eventName:"engaged_user_10", page_url:"", link_text:"", engaged_user_10:0}, error:"Simulated engagement error"}},
+  { name:'engaged_user_by_pages', payload:{event:"engaged_user_by_pages", eventinfo:{eventName:"engaged_user_by_pages", linkText:"", engagedUser:0}, error:"Simulated engagement error"}},
+  { name:'engaged_user_by_timer', payload:{event:"engaged_user_by_timer", eventinfo:{eventName:"engaged_user_by_timer", linkText:"", engagedUser:0}, error:"Simulated engagement error"}}
+];
+
+// Render event cards
+goodEvents.forEach(e => createEventCard(goodContainer, e.name, e.payload));
+errorEvents.forEach(e => createEventCard(errorContainer, e.name, e.payload));
+</script>
+
+</body>
+</html>
